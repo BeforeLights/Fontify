@@ -111,6 +111,7 @@ function createFontPanel(fontInfo) {
     </ul>
     <div style="font-size:12px;color:#888;margin-top:8px;">If the font is not available on one source, try the others.</div>
   `;
+  
   // Prevent click events from propagating to the page behind the panel
   panel.addEventListener('mousedown', e => e.stopPropagation());
   panel.addEventListener('mouseup', e => e.stopPropagation());
