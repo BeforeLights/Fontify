@@ -1,0 +1,73 @@
+#fontify-tooltip {
+  position: absolute;
+  z-index: 999999;
+  background: #222;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  display: none;
+}
+
+body {
+  font-family: Arial, sans-serif;
+}
+
+#font-info {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+#font-downloads {
+  margin-top: 8px;
+}
+
+#fontify-font-panel {
+  position: fixed;
+  min-width: 320px;
+  max-width: 360px;
+  background: #fff;
+  color: #222;
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  z-index: 1000000;
+  padding: 20px 22px 16px 22px;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  border: 1px solid #e0e0e0;
+  animation: fontify-fadein 0.2s;
+  left: 0;
+  top: 0;
+  pointer-events: auto;
+}
+
+.fontify-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+#fontify-close-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: #888;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+#fontify-close-btn:hover {
+  background: #f0f0f0;
+  color: #222;
+}
+
+@keyframes fontify-fadein {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
