@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-# Fontify
 =======
 # Fontify - Font Finder & Downloader
 
