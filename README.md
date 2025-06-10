@@ -1,4 +1,3 @@
-=======
 # Fontify - Font Finder & Downloader
 
 ![Fontify Icon](icon128.png)
