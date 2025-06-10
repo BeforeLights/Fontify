@@ -1,4 +1,4 @@
-# Fontify - Font Finder & Downloader
+# Fontify - Identify and download fonts
 
 ![Fontify Icon](icon128.png)
 
