@@ -27,39 +27,59 @@ Fontify is a browser extension for Firefox and Chromium that helps you identify 
     *   A list of websites where you can find and download the font family.
 4.  **Disable the Extension:** Click the Fontify icon again. The badge will change to "OFF", and all font identification features will be deactivated.
 
-## Installation (for Development/Testing)
+## Installation
 
-### 🦊 Firefox
+You can install Fontify in your browser by following these steps:
 
-1.  Clone or download this repository to your local machine.
-2.  Open Firefox.
-3.  Type `about:debugging` in the address bar and press Enter.
-4.  Click on "This Firefox" in the sidebar.
-5.  Click the "Load Temporary Add-on..." button.
-6.  Navigate to the directory where you saved the Fontify files and select the `manifest.json` file.
+1.  **Download the Latest Release:**
+    *   Go to the [Fontify GitHub Releases page](https://github.com/BeforeLights/Fontify/releases/latest).
+    *   Download the `Fontify-vX.X.X.zip` file (e.g., `Fontify-v1.0.0.zip`) from the latest release assets.
 
-The Fontify icon should now appear in your Firefox toolbar.
+2.  **Extract the ZIP File:**
+    *   Unzip the downloaded file to a permanent location on your computer. You will get a folder named `Fontify` (or similar).
 
-### 🌐 Chromium
+3.  **Load the Extension in Your Browser:** 
 
-1.  Clone or download this repository to your local machine.
-2.  Open any Chromium browsers.
-3.  Go to `chrome://extensions/` in the address bar.
-4.  Enable "Developer mode" (toggle in the top right).
-5.  Click the "Load unpacked" button.
-6.  Select the directory where you saved the Fontify files.
+    #### 🦊 Firefox
+    *  Open Firefox.
+    *  Type `about:debugging` in the address bar and press Enter.
+    *  Click on "This Firefox" in the sidebar.
+    *  Click the "Load Temporary Add-on..." button.
+    *  Navigate to the directory where you unzipped Fontify and select the `manifest.json` file within that folder.
 
-The Fontify icon should now appear in your Chrome toolbar.
+    #### 🌐 Chromium-based Browsers (Chrome, Edge, Opera, Vivaldi, etc.)
+    *  Open your Chromium-based browser.
+    *  Go to `chrome://extensions/` (or the equivalent for your browser, e.g., `edge://extensions/` for Edge, `opera://extensions` for Opera).
+    *  Enable "Developer mode". This is usually a toggle switch in the top-right corner of the extensions page.
+    *  Click the "Load unpacked" button.
+    *  Select the folder where you unzipped Fontify.
 
-## Project Files
+The Fontify icon should now appear in your browser toolbar!
 
-*   ⚙️ `manifest.json`: The core file that defines the extension\'s properties, permissions, and components.
-*   🧠 `background.js`: Handles the extension\'s enable/disable state, toolbar icon clicks, and badge text updates.
-*   💻 `content.js`: Injected into web pages to detect fonts on hover, handle clicks on text elements, and display the font information tooltip and the detailed floating panel.
-*   🎨 `styles.css`: Contains the CSS rules for styling the on-page tooltip and the floating font information panel.
-*   🖼️ `popup.html` & `popup.js`: (Currently unused for the main toggle functionality but kept for potential future use or alternative UI). The `default_popup` in `manifest.json` has been removed so clicking the action button toggles the extension.
-*   🏞️ `icon16.png`, `icon32.png`, `icon48.png`, `icon128.png`: Icons for the extension at various sizes.
-*   📖 `README.md`: This file.
+### 🛠️ For Development & Testing (from source code)
+
+If you want to install Fontify from the source code for development or testing purposes, follow these steps:
+
+1.  **Clone or Download the Repository:**
+    *   Clone this repository to your local machine using Git, or download it as a ZIP file and extract it.
+
+2.  **Open the Extension Management Page in Your Browser:**
+    *   For Firefox, go to `about:debugging` > "This Firefox".
+    *   For Chromium-based browsers, go to `chrome://extensions/`.
+
+3.  **Enable Developer Mode:**
+    *   In Firefox, check "Enable add-on debugging".
+    *   In Chrome, toggle "Developer mode" on (usually in the top-right corner).
+
+4.  **Load the Unpacked Extension:**
+    *   Click "Load Temporary Add-on..." in Firefox or "Load unpacked" in Chrome.
+    *   Select the `manifest.json` file or the folder containing the unpacked extension files.
+
+5.  **Test the Extension:**
+    *   The Fontify icon should appear in your browser toolbar. Test the extension by hovering over text and clicking to see font details.
+
+6.  **Disable or Remove the Extension:**
+    *   To disable, click the Fontify icon and toggle it off. To remove, go to the extension management page and uninstall it.
 
 ---
 
