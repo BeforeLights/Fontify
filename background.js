@@ -7,13 +7,19 @@ chrome.action.onClicked.addListener(async (tab) => {
   // Send toggle event to all tabs
   const tabs = await chrome.tabs.query({});
   for (const t of tabs) {
-    chrome.scripting.executeScript({
-      target: { tabId: t.id },
-      func: (state) => {
-        window.dispatchEvent(new CustomEvent('fontify-toggle', { detail: state }));
-      },
-      args: [enabled]
-    });
+    if (chrome.scripting && chrome.scripting.executeScript) {
+      chrome.scripting.executeScript({
+        target: { tabId: t.id },
+        func: (state) => {
+          window.dispatchEvent(new CustomEvent('fontify-toggle', { detail: state }));
+        },
+        args: [enabled]
+      });
+    } else if (chrome.tabs && chrome.tabs.executeScript) {
+      chrome.tabs.executeScript(t.id, {
+        code: `window.dispatchEvent(new CustomEvent('fontify-toggle', { detail: ${JSON.stringify(enabled)} }));`
+      });
+    }
   }
 });
 
