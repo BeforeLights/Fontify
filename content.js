@@ -161,16 +161,55 @@ function createFontPanel(fontInfo) {
     const activeTab = panel.querySelector('.tab-btn.active');
     moveHighlightTo(activeTab);
   });
-  // Position the panel next to the cursor, but keep it in the viewport
+  // Position the panel next to the cursor, but keep it fully in the viewport
   setTimeout(() => {
-    const panelRect = panel.getBoundingClientRect();
+    // Temporarily set visibility hidden and display block to get accurate size
+    panel.style.visibility = 'hidden';
+    panel.style.display = 'block';
+    // Use offsetWidth/offsetHeight for more reliable size before showing
+    const panelWidth = panel.offsetWidth;
+    const panelHeight = panel.offsetHeight;
+    // Always reset maxHeight/overflowY before measuring
+    panel.style.maxHeight = '';
+    panel.style.overflowY = '';
     let left = lastClickPosition.x + 20;
     let top = lastClickPosition.y + 20;
-    if (left + panelRect.width > window.innerWidth) left = window.innerWidth - panelRect.width - 10;
-    if (top + panelRect.height > window.innerHeight) top = window.innerHeight - panelRect.height - 10;
+    // If panel would overflow right, move to left of cursor if possible
+    if (left + panelWidth > window.innerWidth - 10) {
+      if (lastClickPosition.x - panelWidth - 20 > 10) {
+        left = lastClickPosition.x - panelWidth - 20;
+      } else {
+        left = window.innerWidth - panelWidth - 10;
+      }
+    }
+    // If panel would overflow bottom, move above cursor if possible
+    if (top + panelHeight > window.innerHeight - 10) {
+      if (lastClickPosition.y - panelHeight - 20 > 10) {
+        top = lastClickPosition.y - panelHeight - 20;
+      } else {
+        top = window.innerHeight - panelHeight - 10;
+      }
+    }
+    // Clamp to minimum margin
+    if (left < 10) left = 10;
+    if (top < 10) top = 10;
+    // If panel still overflows bottom, force height and make scrollable
+    let availableHeight = window.innerHeight - top - 10;
+    if (availableHeight < panelHeight) {
+      panel.style.maxHeight = availableHeight + 'px';
+      panel.style.overflowY = 'auto';
+    } else {
+      panel.style.maxHeight = '';
+      panel.style.overflowY = '';
+    }
     panel.style.left = left + 'px';
     panel.style.top = top + 'px';
-  }, 0);
+    panel.style.right = '';
+    panel.style.bottom = '';
+    // Restore visibility
+    panel.style.visibility = '';
+    panel.style.display = '';
+  }, 20); // 20ms to ensure DOM paint and font loading
   document.getElementById('fontify-close-btn').onclick = () => panel.remove();
 
   // Make the panel draggable
