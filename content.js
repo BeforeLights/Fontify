@@ -99,10 +99,10 @@ function createFontPanel(fontInfo) {
       <span style="font-weight:bold;">Font Info</span>
       <button id="fontify-close-btn" title="Close">&times;</button>
     </div>
-    <div id="tab-buttons" style="position:relative;display:flex;gap:0;background:#f2f2f2;border-radius:6px 6px 0 0;overflow:hidden;margin-bottom:10px;height:38px;min-width:220px;">
+    <div id="tab-buttons">
       <div class="tab-highlight" style="left:0;"></div>
-      <button class="tab-btn active" id="type-tab" style="min-width:110px;background:none;border:none;">Type</button>
-      <button class="tab-btn" id="weight-style-tab" style="min-width:110px;background:none;border:none;">Weight/Style</button>
+      <button class="tab-btn active" id="type-tab">Type</button>
+      <button class="tab-btn" id="weight-style-tab">Weight/Style</button>
     </div>
     <div id="font-info-type">
       <div><b>Family:</b> ${family}</div>
