@@ -119,6 +119,7 @@ function createFontPanel(fontInfo) {
     <ul style="padding-left:18px; margin:0;">
       ${sources.map(src => `<li><a href="${src.url}" target="_blank" rel="noopener">${src.name}</a></li>`).join('')}
     </ul>
+    <div id="fontify-direct-download-section" style="margin-top:10px;"></div>
     <div style="font-size:12px;color:#888;margin-top:8px;">If the font is not available on one source, try the others.</div>
   `;
   // Prevent click events from propagating to the page behind the panel
@@ -171,6 +172,188 @@ function createFontPanel(fontInfo) {
     panel.style.top = top + 'px';
   }, 0);
   document.getElementById('fontify-close-btn').onclick = () => panel.remove();
+
+  // Make the panel draggable
+  const header = panel.querySelector('.fontify-panel-header');
+  header.style.cursor = 'move';
+  let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
+  let dragPointerMove, dragPointerUp;
+  header.addEventListener('pointerdown', function(e) {
+    if (e.button !== 0) return; // Only left mouse button
+    isDragging = true;
+    dragOffsetX = e.clientX - panel.getBoundingClientRect().left;
+    dragOffsetY = e.clientY - panel.getBoundingClientRect().top;
+    document.body.style.userSelect = 'none';
+    dragPointerMove = function(e) {
+      let left = e.clientX - dragOffsetX;
+      let top = e.clientY - dragOffsetY;
+      left = Math.max(0, Math.min(left, window.innerWidth - panel.offsetWidth));
+      top = Math.max(0, Math.min(top, window.innerHeight - panel.offsetHeight));
+      panel.style.left = left + 'px';
+      panel.style.top = top + 'px';
+      panel.style.right = '';
+      panel.style.bottom = '';
+    };
+    dragPointerUp = function() {
+      isDragging = false;
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', dragPointerMove);
+      window.removeEventListener('pointerup', dragPointerUp);
+    };
+    window.addEventListener('pointermove', dragPointerMove);
+    window.addEventListener('pointerup', dragPointerUp);
+  });
+
+  // After appending panel to body, add direct font download links if available
+  setTimeout(() => {
+    // Find all font-face src URLs for the current family
+    const styleSheets = Array.from(document.styleSheets);
+    let foundFontFiles = [];
+    for (const sheet of styleSheets) {
+      let rules;
+      try { rules = sheet.cssRules || sheet.rules; } catch (e) { continue; }
+      if (!rules) continue;
+      for (const rule of rules) {
+        if (rule.type === CSSRule.FONT_FACE_RULE) {
+          const ruleFamily = rule.style.fontFamily.replace(/['"]/g, '').trim();
+          if (ruleFamily === family) {
+            const src = rule.style.src;
+            if (src) {
+              // Extract all url(...) from src
+              const matches = src.match(/url\(([^)]+)\)/g);
+              if (matches) {
+                matches.forEach(m => {
+                  let url = m.match(/url\(([^)]+)\)/)[1].replace(/['"]/g, '');
+                  if (/\.(woff2?|ttf|otf|eot|svg)([?#].*)?$/i.test(url)) {
+                    foundFontFiles.push({
+                      url,
+                      family: ruleFamily,
+                      style: rule.style.fontStyle || '',
+                      weight: rule.style.fontWeight || ''
+                    });
+                  }
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+    // Fallback: check <link> and <style> tags for font URLs if nothing found
+    if (foundFontFiles.length === 0) {
+      document.querySelectorAll('link[rel="stylesheet"], style').forEach(el => {
+        let cssText = '';
+        if (el.tagName.toLowerCase() === 'link') {
+          // Try to fetch the CSS if CORS allows
+          try {
+            const href = el.getAttribute('href');
+            if (href && /\.css(\?|$)/.test(href)) {
+              fetch(href).then(r => r.text()).then(text => {
+                const regex = /@font-face\s*{[^}]*}/gi;
+                let match;
+                while ((match = regex.exec(text))) {
+                  const block = match[0];
+                  const famMatch = block.match(/font-family\s*:\s*['\"]?([^;'\"]+)/i);
+                  if (!famMatch) continue;
+                  const ruleFamily = famMatch[1].trim();
+                  if (ruleFamily !== family) continue;
+                  const styleMatch = block.match(/font-style\s*:\s*([^;}]*)/i);
+                  const weightMatch = block.match(/font-weight\s*:\s*([^;}]*)/i);
+                  const srcMatch = block.match(/src\s*:\s*([^;}]*)/);
+                  if (srcMatch) {
+                    const urlMatches = srcMatch[1].match(/url\(([^)]+)\)/g);
+                    if (urlMatches) {
+                      urlMatches.forEach(m => {
+                        let url = m.match(/url\(([^)]+)\)/)[1].replace(/['\"]/g, '');
+                        if (/\.(woff2?|ttf|otf|eot|svg)([?#].*)?$/i.test(url)) {
+                          foundFontFiles.push({
+                            url,
+                            family: ruleFamily,
+                            style: styleMatch ? styleMatch[1].trim() : '',
+                            weight: weightMatch ? weightMatch[1].trim() : ''
+                          });
+                        }
+                      });
+                    }
+                  }
+                }
+                updateDirectSection();
+              });
+            }
+          } catch (e) {}
+        } else if (el.tagName.toLowerCase() === 'style') {
+          cssText = el.textContent;
+          const regex = /@font-face\s*{[^}]*}/gi;
+          let match;
+          while ((match = regex.exec(cssText))) {
+            const block = match[0];
+            const famMatch = block.match(/font-family\s*:\s*['\"]?([^;'\"]+)/i);
+            if (!famMatch) continue;
+            const ruleFamily = famMatch[1].trim();
+            if (ruleFamily !== family) continue;
+            const styleMatch = block.match(/font-style\s*:\s*([^;}]*)/i);
+            const weightMatch = block.match(/font-weight\s*:\s*([^;}]*)/i);
+            const srcMatch = block.match(/src\s*:\s*([^;}]*)/);
+            if (srcMatch) {
+              const urlMatches = srcMatch[1].match(/url\(([^)]+)\)/g);
+              if (urlMatches) {
+                urlMatches.forEach(m => {
+                  let url = m.match(/url\(([^)]+)\)/)[1].replace(/['\"]/g, '');
+                  if (/\.(woff2?|ttf|otf|eot|svg)([?#].*)?$/i.test(url)) {
+                    foundFontFiles.push({
+                      url,
+                      family: ruleFamily,
+                      style: styleMatch ? styleMatch[1].trim() : '',
+                      weight: weightMatch ? weightMatch[1].trim() : ''
+                    });
+                  }
+                });
+              }
+            }
+          }
+        }
+      });
+    }
+    function getFriendlyFontName(file) {
+      // file: { url, family, style, weight }
+      let style = '';
+      // Prefer style/weight from rule, fallback to url parsing
+      const lower = file.url.toLowerCase();
+      const weight = (file.weight || '').toLowerCase();
+      const fontStyle = (file.style || '').toLowerCase();
+      if (/blackitalic|black-italic/.test(lower) || (weight === '900' && fontStyle === 'italic')) style = 'Black Italic';
+      else if (/extrabolditalic|extra-bolditalic|extra-bold-italic/.test(lower) || (weight === '800' && fontStyle === 'italic')) style = 'ExtraBold Italic';
+      else if (/extrabold|extra-bold/.test(lower) || weight === '800') style = 'ExtraBold';
+      else if (/semibolditalic|semi-bolditalic|semi-bold-italic/.test(lower) || (weight === '600' && fontStyle === 'italic')) style = 'SemiBold Italic';
+      else if (/semibold|semi-bold/.test(lower) || weight === '600') style = 'SemiBold';
+      else if (/bolditalic|bold-italic/.test(lower) || (weight === 'bold' && fontStyle === 'italic')) style = 'Bold Italic';
+      else if (/black/.test(lower) || weight === '900') style = 'Black';
+      else if (/bold/.test(lower) || weight === 'bold' || weight === '700') style = 'Bold';
+      else if (/italic/.test(lower) || fontStyle === 'italic' || fontStyle === 'oblique') style = 'Italic';
+      else if (/regular/.test(lower) || weight === 'normal' || weight === '400') style = 'Regular';
+      else if (/medium/.test(lower) || weight === '500') style = 'Medium';
+      else if (/lightitalic|light-italic/.test(lower) || (weight === '300' && fontStyle === 'italic')) style = 'Light Italic';
+      else if (/light/.test(lower) || weight === '300') style = 'Light';
+      else if (/thin/.test(lower) || weight === '100') style = 'Thin';
+      else style = file.url.split('.').pop().toUpperCase();
+      return `${file.family}${style ? ' - ' + style : ''}`;
+    }
+    function updateDirectSection() {
+      const directSection = panel.querySelector('#fontify-direct-download-section');
+      if (foundFontFiles.length > 0) {
+        directSection.innerHTML = `
+          <div style="font-weight:bold;margin:10px 0 4px 0;">Download used font file(s) from this website:</div>
+          <ul style="padding-left:18px; margin:0; max-height:180px; overflow:auto;">
+            ${foundFontFiles.map(file => `<li><a href="${file.url}" download style="word-break:break-all;">${getFriendlyFontName(file)}</a></li>`).join('')}
+          </ul>
+        `;
+      } else {
+        directSection.innerHTML = `<div style="font-size:13px;color:#888;margin:10px 0 0 0;">No downloadable font file found on this website.</div>`;
+      }
+    }
+    // Initial update
+    updateDirectSection();
+  }, 0);
 }
 
 function getFontType(weight, style) {
