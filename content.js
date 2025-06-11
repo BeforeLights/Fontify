@@ -43,6 +43,12 @@ function isTextElement(element) {
 
 function showTooltip(e) {
   if (!enabled) return;
+  // Don't show tooltip if mouse is over the font panel
+  const panel = document.getElementById('fontify-font-panel');
+  if (panel && panel.contains(e.target)) {
+    hideTooltip();
+    return;
+  }
   if (!isTextElement(e.target)) {
     hideTooltip();
     return;
@@ -95,8 +101,9 @@ function createFontPanel(fontInfo) {
   const panel = document.createElement('div');
   panel.id = 'fontify-font-panel';
   panel.innerHTML = `
+    <link href="https://fonts.googleapis.com/css?family=Playfair+Display:700&display=swap" rel="stylesheet">
     <div class="fontify-panel-header">
-      <span style="font-weight:bold;">Font Info</span>
+      <span style="font-family:'Playfair Display',serif;font-weight:700;font-size:22px;letter-spacing:1px;">FONTIFY</span>
       <button id="fontify-close-btn" title="Close">&times;</button>
     </div>
     <div id="tab-buttons">
@@ -121,6 +128,9 @@ function createFontPanel(fontInfo) {
     </ul>
     <div id="fontify-direct-download-section" style="margin-top:10px;"></div>
     <div style="font-size:12px;color:#888;margin-top:8px;">If the font is not available on one source, try the others.</div>
+    <div style="display:flex;justify-content:center;margin-top:24px;">
+      <button id="fontifyx-bulk-btn" style="font-family:'Inter',Arial,sans-serif;font-size:16px;padding:10px 48px;border-radius:6px;background:#222;color:#fff;border:none;cursor:pointer;width:100%;max-width:260px;box-shadow:0 2px 8px rgba(0,0,0,0.07);">Bulk Download</button>
+    </div>
   `;
   // Prevent click events from propagating to the page behind the panel
   panel.addEventListener('mousedown', e => e.stopPropagation());
@@ -213,12 +223,42 @@ function createFontPanel(fontInfo) {
   document.getElementById('fontify-close-btn').onclick = () => panel.remove();
 
   // Make the panel draggable
+  // Allow drag from header or any whitespace (background) of the panel, including the right side, but not on text, buttons, or links
   const header = panel.querySelector('.fontify-panel-header');
+  panel.style.position = 'fixed';
   header.style.cursor = 'move';
+  panel.style.cursor = 'default';
+  // Add a transparent overlay for dragging on whitespace
+  const dragOverlay = document.createElement('div');
+  dragOverlay.style.position = 'absolute';
+  dragOverlay.style.top = '0';
+  dragOverlay.style.left = '0';
+  dragOverlay.style.width = '100%';
+  dragOverlay.style.height = '100%';
+  dragOverlay.style.zIndex = '10';
+  dragOverlay.style.pointerEvents = 'none';
+  dragOverlay.style.background = 'transparent';
+  panel.appendChild(dragOverlay);
   let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
   let dragPointerMove, dragPointerUp;
-  header.addEventListener('pointerdown', function(e) {
-    if (e.button !== 0) return; // Only left mouse button
+  function isDraggableArea(e) {
+    // Allow drag if on header
+    if (header.contains(e.target)) return true;
+    // Allow drag if on panel background (not on any child element)
+    if (e.target === panel) return true;
+    // Allow drag if on overlay and underlying element is panel (not a child)
+    if (e.target === dragOverlay) {
+      // Use elementFromPoint to check if the underlying element is the panel itself
+      const rect = panel.getBoundingClientRect();
+      const x = e.clientX, y = e.clientY;
+      const underlying = document.elementFromPoint(x, y);
+      if (underlying === panel) return true;
+    }
+    return false;
+  }
+  panel.addEventListener('pointerdown', function(e) {
+    if (e.button !== 0) return;
+    if (!isDraggableArea(e)) return;
     isDragging = true;
     dragOffsetX = e.clientX - panel.getBoundingClientRect().left;
     dragOffsetY = e.clientY - panel.getBoundingClientRect().top;
@@ -241,6 +281,15 @@ function createFontPanel(fontInfo) {
     };
     window.addEventListener('pointermove', dragPointerMove);
     window.addEventListener('pointerup', dragPointerUp);
+  });
+  // Overlay pointer events: only catch events when mouse is over panel background (not children)
+  panel.addEventListener('mousemove', function(e) {
+    // If mouse is over the panel background (not a child), enable overlay pointer events
+    if (e.target === panel) {
+      dragOverlay.style.pointerEvents = 'auto';
+    } else {
+      dragOverlay.style.pointerEvents = 'none';
+    }
   });
 
   // After appending panel to body, add direct font download links if available
@@ -393,6 +442,15 @@ function createFontPanel(fontInfo) {
     // Initial update
     updateDirectSection();
   }, 0);
+
+  // Add bulk button event
+  panel.querySelector('#fontifyx-bulk-btn').onclick = function() {
+    showFontifyxBulkDownloadPanel([
+      {family: family},
+      {family: 'Inter'},
+      {family: 'Playfair Display'}
+    ]);
+  };
 }
 
 function getFontType(weight, style) {
