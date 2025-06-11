@@ -54,7 +54,7 @@ function showTooltip(e) {
     tooltip.id = 'fontify-tooltip';
     document.body.appendChild(tooltip);
   }
-  tooltip.textContent = `${fontInfo.family} | ${fontInfo.weight} | ${fontInfo.style}`;
+  tooltip.textContent = `${fontInfo.family} | Type: ${getFontType(fontInfo.weight, fontInfo.style)}`;
   tooltip.style.display = 'block';
   tooltip.style.left = e.pageX + 10 + 'px';
   tooltip.style.top = e.pageY + 10 + 'px';
@@ -99,7 +99,17 @@ function createFontPanel(fontInfo) {
       <span style="font-weight:bold;">Font Info</span>
       <button id="fontify-close-btn" title="Close">&times;</button>
     </div>
-    <div style="margin-bottom:10px;">
+    <div id="tab-buttons" style="position:relative;display:flex;gap:0;background:#f2f2f2;border-radius:6px 6px 0 0;overflow:hidden;margin-bottom:10px;height:38px;min-width:220px;">
+      <div class="tab-highlight" style="left:0;"></div>
+      <button class="tab-btn active" id="type-tab" style="min-width:110px;background:none;border:none;">Type</button>
+      <button class="tab-btn" id="weight-style-tab" style="min-width:110px;background:none;border:none;">Weight/Style</button>
+    </div>
+    <div id="font-info-type">
+      <div><b>Family:</b> ${family}</div>
+      <div><b>Type:</b> ${getFontType(fontInfo.weight, fontInfo.style)}</div>
+      <div><b>Size:</b> ${fontInfo.size}</div>
+    </div>
+    <div id="font-info-weight-style" style="display:none;">
       <div><b>Family:</b> ${family}</div>
       <div><b>Weight:</b> ${fontInfo.weight}</div>
       <div><b>Style:</b> ${fontInfo.style}</div>
@@ -111,7 +121,6 @@ function createFontPanel(fontInfo) {
     </ul>
     <div style="font-size:12px;color:#888;margin-top:8px;">If the font is not available on one source, try the others.</div>
   `;
-  
   // Prevent click events from propagating to the page behind the panel
   panel.addEventListener('mousedown', e => e.stopPropagation());
   panel.addEventListener('mouseup', e => e.stopPropagation());
@@ -120,6 +129,37 @@ function createFontPanel(fontInfo) {
   panel.addEventListener('pointerdown', e => e.stopPropagation());
   document.body.appendChild(panel);
 
+  // Tab switching and highlight logic
+  const tabButtons = panel.querySelectorAll('.tab-btn');
+  const highlight = panel.querySelector('.tab-highlight');
+  const tabBar = panel.querySelector('#tab-buttons');
+  function moveHighlightTo(tab) {
+    highlight.style.left = tab.offsetLeft + 'px';
+    highlight.style.width = tab.offsetWidth + 'px';
+  }
+  // Initial highlight position
+  moveHighlightTo(panel.querySelector('.tab-btn.active'));
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', function() {
+      tabButtons.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      if (this.id === 'type-tab') {
+        panel.querySelector('#font-info-type').style.display = '';
+        panel.querySelector('#font-info-weight-style').style.display = 'none';
+      } else {
+        panel.querySelector('#font-info-type').style.display = 'none';
+        panel.querySelector('#font-info-weight-style').style.display = '';
+      }
+      moveHighlightTo(this);
+    });
+    btn.addEventListener('mouseenter', function() {
+      moveHighlightTo(this);
+    });
+  });
+  tabBar.addEventListener('mouseleave', function() {
+    const activeTab = panel.querySelector('.tab-btn.active');
+    moveHighlightTo(activeTab);
+  });
   // Position the panel next to the cursor, but keep it in the viewport
   setTimeout(() => {
     const panelRect = panel.getBoundingClientRect();
@@ -130,8 +170,16 @@ function createFontPanel(fontInfo) {
     panel.style.left = left + 'px';
     panel.style.top = top + 'px';
   }, 0);
-
   document.getElementById('fontify-close-btn').onclick = () => panel.remove();
+}
+
+function getFontType(weight, style) {
+  const isBold = weight >= 600 || weight === 'bold';
+  const isItalic = style === 'italic' || style === 'oblique';
+  if (isBold && isItalic) return 'Bold Italic';
+  if (isBold) return 'Bold';
+  if (isItalic) return 'Italic';
+  return 'Regular';
 }
 
 // Listen for toggle event from background.js

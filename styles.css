@@ -67,6 +67,58 @@ body {
   color: #222;
 }
 
+#tab-buttons {
+  position: relative;
+  display: flex;
+  gap: 0;
+  background: #f2f2f2;
+  border-radius: 6px 6px 0 0;
+  overflow: hidden;
+  margin-bottom: 10px;
+  height: 38px;
+}
+
+#tab-buttons .tab-btn {
+  flex: 1 1 0;
+  background: none;
+  border: none;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  z-index: 1;
+  color: #888;
+  transition: color 0.18s;
+  position: relative;
+  height: 100%;
+}
+
+#tab-buttons .tab-btn.active {
+  color: #222;
+  font-weight: bold;
+}
+
+#tab-buttons .tab-highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: #fff;
+  border-radius: 6px 6px 0 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: left 0.28s cubic-bezier(.4,0,.2,1), width 0.18s cubic-bezier(.4,0,.2,1);
+  z-index: 0;
+}
+
+#tab-buttons .tab-btn:hover {
+  color: #111;
+}
+
+#font-info-type, #font-info-weight-style {
+  min-height: 24px;
+  margin-bottom: 12px;
+}
+
 @keyframes fontify-fadein {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
