@@ -43,9 +43,10 @@ function isTextElement(element) {
 
 function showTooltip(e) {
   if (!enabled) return;
-  // Don't show tooltip if mouse is over the font panel
+  // Don't show tooltip if mouse is over the font panel or bulk download panel
   const panel = document.getElementById('fontify-font-panel');
-  if (panel && panel.contains(e.target)) {
+  const bulkPanel = document.getElementById('fontifyx-bulk-panel');
+  if ((panel && panel.contains(e.target)) || (bulkPanel && bulkPanel.contains(e.target))) {
     hideTooltip();
     return;
   }
@@ -293,10 +294,12 @@ function createFontPanel(fontInfo) {
   });
 
   // After appending panel to body, add direct font download links if available
+  // --- Hoist foundFontFiles to outer scope so async fetches update the same array ---
+  let foundFontFiles = [];
   setTimeout(() => {
-    // Find all font-face src URLs for the current family
+    // Find all font-face src URLs on the website (not just the current family)
     const styleSheets = Array.from(document.styleSheets);
-    let foundFontFiles = [];
+    foundFontFiles.length = 0; // clear in case of panel reopen
     for (const sheet of styleSheets) {
       let rules;
       try { rules = sheet.cssRules || sheet.rules; } catch (e) { continue; }
@@ -304,24 +307,23 @@ function createFontPanel(fontInfo) {
       for (const rule of rules) {
         if (rule.type === CSSRule.FONT_FACE_RULE) {
           const ruleFamily = rule.style.fontFamily.replace(/['"]/g, '').trim();
-          if (ruleFamily === family) {
-            const src = rule.style.src;
-            if (src) {
-              // Extract all url(...) from src
-              const matches = src.match(/url\(([^)]+)\)/g);
-              if (matches) {
-                matches.forEach(m => {
-                  let url = m.match(/url\(([^)]+)\)/)[1].replace(/['"]/g, '');
-                  if (/\.(woff2?|ttf|otf|eot|svg)([?#].*)?$/i.test(url)) {
-                    foundFontFiles.push({
-                      url,
-                      family: ruleFamily,
-                      style: rule.style.fontStyle || '',
-                      weight: rule.style.fontWeight || ''
-                    });
-                  }
-                });
-              }
+          // Find ALL fonts, not just the clicked family
+          const src = rule.style.src;
+          if (src) {
+            // Extract all url(...) from src
+            const matches = src.match(/url\(([^)]+)\)/g);
+            if (matches) {
+              matches.forEach(m => {
+                let url = m.match(/url\(([^)]+)\)/)[1].replace(/['"]/g, '');
+                if (/\.(woff2?|ttf|otf|eot|svg)([?#].*)?$/i.test(url)) {
+                  foundFontFiles.push({
+                    url,
+                    family: ruleFamily,
+                    style: rule.style.fontStyle || '',
+                    weight: rule.style.fontWeight || ''
+                  });
+                }
+              });
             }
           }
         }
@@ -341,10 +343,10 @@ function createFontPanel(fontInfo) {
                 let match;
                 while ((match = regex.exec(text))) {
                   const block = match[0];
-                  const famMatch = block.match(/font-family\s*:\s*['\"]?([^;'\"]+)/i);
+                  const famMatch = block.match(/font-family\s*:\s*['\"]?([^;'"]+)/i);
                   if (!famMatch) continue;
                   const ruleFamily = famMatch[1].trim();
-                  if (ruleFamily !== family) continue;
+                  // Find ALL fonts, not just the clicked family
                   const styleMatch = block.match(/font-style\s*:\s*([^;}]*)/i);
                   const weightMatch = block.match(/font-weight\s*:\s*([^;}]*)/i);
                   const srcMatch = block.match(/src\s*:\s*([^;}]*)/);
@@ -375,10 +377,10 @@ function createFontPanel(fontInfo) {
           let match;
           while ((match = regex.exec(cssText))) {
             const block = match[0];
-            const famMatch = block.match(/font-family\s*:\s*['\"]?([^;'\"]+)/i);
+            const famMatch = block.match(/font-family\s*:\s*['\"]?([^;'"]+)/i);
             if (!famMatch) continue;
             const ruleFamily = famMatch[1].trim();
-            if (ruleFamily !== family) continue;
+            // Find ALL fonts, not just the clicked family
             const styleMatch = block.match(/font-style\s*:\s*([^;}]*)/i);
             const weightMatch = block.match(/font-weight\s*:\s*([^;}]*)/i);
             const srcMatch = block.match(/src\s*:\s*([^;}]*)/);
@@ -399,6 +401,7 @@ function createFontPanel(fontInfo) {
               }
             }
           }
+          updateDirectSection();
         }
       });
     }
@@ -428,29 +431,42 @@ function createFontPanel(fontInfo) {
     }
     function updateDirectSection() {
       const directSection = panel.querySelector('#fontify-direct-download-section');
-      if (foundFontFiles.length > 0) {
+      // Normalize family names for comparison (remove quotes, extra spaces, make lowercase)
+      const normalizedClickedFamily = family.replace(/['"]/g, '').trim().toLowerCase();
+      const matchingFonts = foundFontFiles.filter(file => {
+        const normalizedRuleFamily = file.family.replace(/['"]/g, '').trim().toLowerCase();
+        return normalizedRuleFamily === normalizedClickedFamily;
+      });
+      
+      if (matchingFonts.length > 0) {
         directSection.innerHTML = `
           <div style="font-weight:bold;margin:10px 0 4px 0;">Download used font file(s) from this website:</div>
           <ul style="padding-left:18px; margin:0; max-height:180px; overflow:auto;">
-            ${foundFontFiles.map(file => `<li><a href="${file.url}" download style="word-break:break-all;">${getFriendlyFontName(file)}</a></li>`).join('')}
+            ${matchingFonts.map(file => `<li><a href="${file.url}" download style="word-break:break-all;">${getFriendlyFontName(file)}</a></li>`).join('')}
           </ul>
         `;
       } else {
-        directSection.innerHTML = `<div style="font-size:13px;color:#888;margin:10px 0 0 0;">No downloadable font file found on this website.</div>`;
+        directSection.innerHTML = `<div style="font-size:13px;color:#888;margin:10px 0 0 0;">No downloadable font file found for this font family.</div>`;
+      }
+      // --- Update bulk button state based on ALL fonts found ---
+      const bulkBtn = panel.querySelector('#fontifyx-bulk-btn');
+      if (bulkBtn) {
+        if (foundFontFiles.length > 0) {
+          bulkBtn.disabled = false;
+          bulkBtn.style.opacity = '';
+          bulkBtn.onclick = function() {
+            showFontifyxBulkDownloadPanel(foundFontFiles);
+          };
+        } else {
+          bulkBtn.disabled = true;
+          bulkBtn.style.opacity = '0.5';
+          bulkBtn.onclick = null;
+        }
       }
     }
     // Initial update
     updateDirectSection();
   }, 0);
-
-  // Add bulk button event
-  panel.querySelector('#fontifyx-bulk-btn').onclick = function() {
-    showFontifyxBulkDownloadPanel([
-      {family: family},
-      {family: 'Inter'},
-      {family: 'Playfair Display'}
-    ]);
-  };
 }
 
 function getFontType(weight, style) {
@@ -480,3 +496,256 @@ document.addEventListener('click', function(e) {
   createFontPanel(fontInfo); // Show on-page panel
   window.postMessage({ type: 'FONTIFY_SHOW_POPUP', fontInfo }, '*');
 });
+
+// Update showFontifyxBulkDownloadPanel to use foundFontFiles structure
+function showFontifyxBulkDownloadPanel(fontFiles) {
+  // Remove any existing bulk panel
+  const oldBulkPanel = document.getElementById('fontifyx-bulk-panel');
+  if (oldBulkPanel) oldBulkPanel.remove();
+
+  // Helper function to get font type format
+  function getFontTypeFormat(file) {
+    const weight = (file.weight || '').toLowerCase();
+    const style = (file.style || '').toLowerCase();
+    const isBold = weight === 'bold' || weight === '700' || parseInt(weight) >= 600;
+    const isItalic = style === 'italic' || style === 'oblique';
+    
+    if (isBold && isItalic) return 'Bold Italic';
+    if (isBold) return 'Bold';
+    if (isItalic) return 'Italic';
+    return 'Regular';
+  }
+
+  // Create panel
+  const bulkPanel = document.createElement('div');
+  bulkPanel.id = 'fontifyx-bulk-panel';
+  bulkPanel.innerHTML = `
+    <link href="https://fonts.googleapis.com/css?family=Playfair+Display:700&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <div class="fontify-panel-header" style="display:flex;align-items:center;justify-content:space-between;padding:0 0 8px 0;">
+      <span style="font-family:'Playfair Display',serif;font-weight:700;font-size:22px;letter-spacing:1px;">Bulk Download</span>
+      <button id="fontifyx-bulk-close-btn" title="Close" style="background:none;border:none;font-size:22px;color:#888;cursor:pointer;line-height:1;padding:0 4px;border-radius:4px;transition:background 0.15s;">&times;</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button id="fontifyx-select-all-btn" style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:500;padding:8px 16px;border-radius:6px;background:#f8f9fa;color:#495057;border:1px solid #dee2e6;cursor:pointer;flex:1;transition:all 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.05);">Select All</button>
+      <button id="fontifyx-deselect-all-btn" style="font-family:'Inter',Arial,sans-serif;font-size:14px;font-weight:500;padding:8px 16px;border-radius:6px;background:#f8f9fa;color:#495057;border:1px solid #dee2e6;cursor:pointer;flex:1;transition:all 0.15s;box-shadow:0 1px 3px rgba(0,0,0,0.05);">Deselect All</button>
+    </div>
+    <div id="fontifyx-bulk-list" style="margin-bottom:16px;max-height:220px;overflow:auto;">
+      ${fontFiles.map((file, i) => `
+        <label class="fontifyx-bulk-item" style="display:flex;align-items:center;margin-bottom:8px;gap:10px;cursor:pointer;">
+          <input type="checkbox" class="fontifyx-bulk-checkbox" value="${file.url}" checked style="accent-color:#222;width:18px;height:18px;border-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,0.07);margin:0;">
+          <span style="font-family:'Inter',Arial,sans-serif;font-size:15px;">${file.family} | Type: ${getFontTypeFormat(file)}</span>
+        </label>
+      `).join('')}
+    </div>
+    <div style="display:flex;justify-content:center;">
+      <button id="fontifyx-bulk-download-btn" style="font-family:'Inter',Arial,sans-serif;font-size:16px;padding:10px 48px;border-radius:6px;background:#222;color:#fff;border:none;cursor:pointer;width:100%;max-width:260px;box-shadow:0 2px 8px rgba(0,0,0,0.07);">Download Selected</button>
+    </div>
+  `;
+  // Style and position
+  bulkPanel.style.position = 'fixed';
+  bulkPanel.style.left = '50%';
+  bulkPanel.style.top = '50%';
+  bulkPanel.style.transform = 'translate(-50%, -50%) scale(0.98)';
+  bulkPanel.style.opacity = '0';
+  bulkPanel.style.background = '#fff';
+  bulkPanel.style.borderRadius = '12px';
+  bulkPanel.style.boxShadow = '0 4px 24px rgba(0,0,0,0.18)';
+  bulkPanel.style.zIndex = '1000001';
+  bulkPanel.style.padding = '22px 28px 18px 28px';
+  bulkPanel.style.minWidth = '320px';
+  bulkPanel.style.maxWidth = '400px';
+  bulkPanel.style.fontFamily = "'Playfair Display', 'Inter', Arial, sans-serif";
+  bulkPanel.style.fontSize = '15px';
+  bulkPanel.style.border = '1px solid #e0e0e0';
+  bulkPanel.style.transition = 'transform 0.18s cubic-bezier(.4,1,.6,1), opacity 0.18s cubic-bezier(.4,1,.6,1)';
+
+  // Prevent click events from propagating
+  bulkPanel.addEventListener('mousedown', e => e.stopPropagation());
+  bulkPanel.addEventListener('mouseup', e => e.stopPropagation());
+  bulkPanel.addEventListener('click', e => e.stopPropagation());
+  bulkPanel.addEventListener('dblclick', e => e.stopPropagation());
+  bulkPanel.addEventListener('pointerdown', e => e.stopPropagation());
+
+  document.body.appendChild(bulkPanel);
+
+  // Stop propagation for all interactive elements
+  bulkPanel.addEventListener('pointerdown', function(e) {
+    // Stop propagation for interactive elements
+    if (e.target.tagName === 'BUTTON' || 
+        e.target.tagName === 'INPUT' || 
+        e.target.tagName === 'LABEL' ||
+        e.target.type === 'checkbox' ||
+        e.target.closest('button') ||
+        e.target.closest('label') ||
+        e.target.closest('input')) {
+      e.stopPropagation();
+    }
+  });
+
+  // --- Animate in like the main panel (no bounce, just fade/scale in) ---
+  setTimeout(() => {
+    bulkPanel.style.transform = 'translate(-50%, -50%) scale(1)';
+    bulkPanel.style.opacity = '1';
+  }, 10);
+
+  // --- Make the bulk panel draggable like the main panel ---
+  const header = bulkPanel.querySelector('.fontify-panel-header');
+  bulkPanel.style.cursor = 'default';
+  header.style.cursor = 'move';
+  // Add a transparent overlay for dragging on whitespace
+  const dragOverlay = document.createElement('div');
+  dragOverlay.style.position = 'absolute';
+  dragOverlay.style.top = '0';
+  dragOverlay.style.left = '0';
+  dragOverlay.style.width = '100%';
+  dragOverlay.style.height = '100%';
+  dragOverlay.style.zIndex = '10';
+  dragOverlay.style.pointerEvents = 'none';
+  dragOverlay.style.background = 'transparent';
+  bulkPanel.appendChild(dragOverlay);
+  let isDragging = false, dragOffsetX = 0, dragOffsetY = 0;
+  let dragPointerMove, dragPointerUp;
+  function isDraggableArea(e) {
+    // Allow drag if on header
+    if (header.contains(e.target)) return true;
+    // Allow drag if on panel background (not on any child element)
+    if (e.target === bulkPanel) return true;
+    // Allow drag if on overlay and underlying element is panel (not a child)
+    if (e.target === dragOverlay) {
+      // Use elementFromPoint to check if the underlying element is the panel itself
+      const rect = bulkPanel.getBoundingClientRect();
+      const x = e.clientX, y = e.clientY;
+      const underlying = document.elementFromPoint(x, y);
+      if (underlying === bulkPanel) return true;
+    }
+    return false;
+  }
+  bulkPanel.addEventListener('pointerdown', function(e) {
+    if (e.button !== 0) return;
+    if (!isDraggableArea(e)) return;
+    
+    // Get current visual position
+    const rect = bulkPanel.getBoundingClientRect();
+    
+    // Remove transform and set to current visual position
+    bulkPanel.style.transform = '';
+    bulkPanel.style.left = rect.left + 'px';
+    bulkPanel.style.top = rect.top + 'px';
+    bulkPanel.style.margin = '0';
+    bulkPanel.style.right = '';
+    bulkPanel.style.bottom = '';
+    
+    isDragging = true;
+    dragOffsetX = e.clientX - rect.left;
+    dragOffsetY = e.clientY - rect.top;
+    document.body.style.userSelect = 'none';
+    dragPointerMove = function(e) {
+      let left = e.clientX - dragOffsetX;
+      let top = e.clientY - dragOffsetY;
+      left = Math.max(0, Math.min(left, window.innerWidth - bulkPanel.offsetWidth));
+      top = Math.max(0, Math.min(top, window.innerHeight - bulkPanel.offsetHeight));
+      bulkPanel.style.left = left + 'px';
+      bulkPanel.style.top = top + 'px';
+      bulkPanel.style.right = '';
+      bulkPanel.style.bottom = '';
+    };
+    dragPointerUp = function() {
+      isDragging = false;
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', dragPointerMove);
+      window.removeEventListener('pointerup', dragPointerUp);
+    };
+    window.addEventListener('pointermove', dragPointerMove);
+    window.addEventListener('pointerup', dragPointerUp);
+  });
+  // Overlay pointer events: only catch events when mouse is over panel background (not children)
+  bulkPanel.addEventListener('mousemove', function(e) {
+    // If mouse is over the panel background (not a child), enable overlay pointer events
+    if (e.target === bulkPanel) {
+      dragOverlay.style.pointerEvents = 'auto';
+    } else {
+      dragOverlay.style.pointerEvents = 'none';
+    }
+  });
+  // Close logic
+  const closeBtn = document.getElementById('fontifyx-bulk-close-btn');
+  closeBtn.onclick = (e) => {
+    e.stopPropagation();
+    bulkPanel.remove();
+  };
+  // Add hover effect to match main panel
+  closeBtn.addEventListener('mouseenter', () => {
+    closeBtn.style.background = '#f0f0f0';
+    closeBtn.style.color = '#222';
+  });
+  closeBtn.addEventListener('mouseleave', () => {
+    closeBtn.style.background = 'none';
+    closeBtn.style.color = '#888';
+  });
+
+  // Select/Deselect all logic
+  const selectAllBtn = document.getElementById('fontifyx-select-all-btn');
+  const deselectAllBtn = document.getElementById('fontifyx-deselect-all-btn');
+  
+  selectAllBtn.onclick = function(e) {
+    e.stopPropagation();
+    const checkboxes = bulkPanel.querySelectorAll('.fontifyx-bulk-checkbox');
+    checkboxes.forEach(cb => cb.checked = true);
+  };
+  
+  deselectAllBtn.onclick = function(e) {
+    e.stopPropagation();
+    const checkboxes = bulkPanel.querySelectorAll('.fontifyx-bulk-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+  };
+
+  // Add hover effects for select/deselect buttons
+  [selectAllBtn, deselectAllBtn].forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      btn.style.background = '#e9ecef';
+      btn.style.borderColor = '#adb5bd';
+      btn.style.transform = 'translateY(-1px)';
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.background = '#f8f9fa';
+      btn.style.borderColor = '#dee2e6';
+      btn.style.transform = 'translateY(0)';
+    });
+  });
+
+  // Download logic
+  document.getElementById('fontifyx-bulk-download-btn').onclick = function(e) {
+    e.stopPropagation();
+    const checked = Array.from(bulkPanel.querySelectorAll('.fontifyx-bulk-checkbox:checked'));
+    const selectedUrls = checked.map(cb => cb.value);
+    if (selectedUrls.length === 0) {
+      alert('Please select at least one font to download.');
+      return;
+    }
+    
+    // Show downloading message
+    this.textContent = `Downloading ${selectedUrls.length} fonts...`;
+    this.disabled = true;
+    this.style.opacity = '0.7';
+    
+    // Download each selected font file with a delay to prevent browser blocking
+    selectedUrls.forEach((url, index) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = url.split('/').pop().split('?')[0];
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        // Close panel after last download
+        if (index === selectedUrls.length - 1) {
+          setTimeout(() => {
+            bulkPanel.remove();
+          }, 500);
+        }
+      }, index * 300); // 300ms delay between downloads
+    });
+  };
+}
